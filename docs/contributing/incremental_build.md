@@ -142,6 +142,18 @@ CMakeFiles      cumem_allocator.abi3.so  install_local_manifest.txt           vl
 
 The `cmake --build ... --target install` command copies the compiled shared libraries (like `_C.abi3.so`, `_moe_C.abi3.so`, etc.) into the appropriate `vllm` package directory within your source tree. This updates your editable installation with the newly compiled kernels.
 
+## Inspecting Ninja Build Times
+
+After a Ninja build, report the longest build steps and overall parallelism:
+
+```console
+python tools/report_build_time_ninja.py -C cmake-build-release
+```
+
+The report reads `.ninja_log` from the build directory. A log with no completed
+steps prints `No build steps found.`. When the recorded build spans zero
+milliseconds, parallelism and steps per second are reported as zero.
+
 ## Additional Tips
 
 - **Adjust Parallelism:** Fine-tune the `CMAKE_JOB_POOLS` in `configurePresets` and `jobs` in `buildPresets` in your `CMakeUserPresets.json`. Too many jobs can overload systems with limited RAM or CPU cores, leading to slower builds or system instability. Too few won't fully utilize available resources.

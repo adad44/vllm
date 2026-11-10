@@ -195,6 +195,10 @@ def GetExtension(target, extra_patterns):
 
 def SummarizeEntries(entries, extra_step_types):
     """Print a summary of the passed in list of Target objects."""
+    if not entries:
+        print("    No build steps found.")
+        return
+
     # Create a list that is in order by time stamp and has entries for the
     # beginning and ending of each build step (one time stamp may have multiple
     # entries due to multiple steps starting/stopping at exactly the same time).
@@ -274,13 +278,15 @@ def SummarizeEntries(entries, extra_step_types):
                 f"{target.DescribeTargets()} ({target.Duration():.1f} s elapsed time)"
             )
 
+    parallelism = total_cpu_time / length if length else 0.0
+    steps_per_second = len(entries) / length if length else 0.0
     print(
         f"    {length:.1f} s weighted time ({total_cpu_time:.1f} s elapsed time sum, "
-        f"{total_cpu_time * 1.0 / length:1.1f}x parallelism)"
+        f"{parallelism:1.1f}x parallelism)"
     )
     print(
         f"    {len(entries)} build steps completed, "
-        f"average of {len(entries) / (length):1.2f}/s"
+        f"average of {steps_per_second:1.2f}/s"
     )
 
 
