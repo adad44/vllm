@@ -562,24 +562,54 @@ def _classify_subcommand(tokens: list[str], visited: set[str]) -> list[Selection
 
 # `xargs` options that consume the following token as their value.
 _XARGS_VALUE_FLAGS = {
-    "-n", "-L", "-P", "-s", "-I", "-i", "-J", "-E", "-d",
-    "--max-args", "--max-lines", "--max-procs", "--replace", "--delimiter",
+    "-n", "-L", "-P", "-s", "-J", "-E", "-d",
+    "--max-args", "--max-lines", "--max-procs", "--delimiter",
 }  # fmt: skip
 
 
-def _xargs_command_tokens(tokens: list[str]) -> list[str]:
-    """The command (plus its args) that `xargs` will exec, with `xargs`' own
-    options stripped: `xargs -0 -n1 -I{} env FOO=1 pytest` -> `['env',
-    'FOO=1', 'pytest']`."""
+def _xargs_runs_matches_through_pytest(tokens: list[str]) -> bool:
+    """Check that xargs passes its input as positional pytest paths."""
     i = 0
+    replacement = None
     while i < len(tokens):
-        if tokens[i] in _XARGS_VALUE_FLAGS:
+        token = tokens[i]
+        if token == "--":
+            i += 1
+            break
+        if token == "-I":
+            replacement = tokens[i + 1] if i + 1 < len(tokens) else ""
             i += 2
-        elif tokens[i].startswith("-"):
+        elif token.startswith("-I"):
+            replacement = token[2:]
+            i += 1
+        elif token in ("-i", "--replace"):
+            replacement = "{}"
+            i += 1
+        elif token.startswith("--replace="):
+            replacement = token.partition("=")[2]
+            i += 1
+        elif token.startswith("-i"):
+            replacement = token[2:]
+            i += 1
+        elif token in _XARGS_VALUE_FLAGS:
+            i += 2
+        elif token.startswith("-"):
             i += 1
         else:
-            return tokens[i:]
-    return []
+            break
+
+    command = tokens[i:]
+    if replacement == "":
+        return False
+    probe = "_find_match_.py"
+    if replacement is None:
+        command = [*command, probe]
+    else:
+        command = [t.replace(replacement, probe) for t in command]
+    if not _runs_pytest(command):
+        return False
+    selection = _parse_pytest_command(command)
+    return any(normalize_test_path(p) == probe for p in selection.included_paths)
 
 
 def _runs_pytest(tokens: list[str]) -> bool:
@@ -614,7 +644,7 @@ def _find_feeds_pytest(stages: list[tuple[str, list[str]]], find_index: int) -> 
     for sep, tokens in stages[find_index + 1 :]:
         if sep != "|":
             break
-        if tokens[:1] == ["xargs"] and _runs_pytest(_xargs_command_tokens(tokens[1:])):
+        if tokens[:1] == ["xargs"] and _xargs_runs_matches_through_pytest(tokens[1:]):
             return True
         if tokens[:1] and tokens[0] in _PIPE_PASSTHROUGH:
             continue

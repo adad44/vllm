@@ -476,6 +476,24 @@ def test_non_test_commands_contribute_nothing(command):
     )
 
 
+@pytest.mark.parametrize(
+    ("xargs_args", "expected"),
+    [
+        ("-I{} pytest test_regression.py", False),
+        ("-I {} pytest --ignore {} test_regression.py", False),
+        ("--replace=FILE pytest -k FILE test_regression.py", False),
+        ("-I{} pytest {}", True),
+        ("--replace=FILE pytest FILE", True),
+        ("--replace pytest {}", True),
+        ("-n1 pytest", True),
+    ],
+)
+def test_xargs_must_pass_find_matches_as_test_paths(xargs_args, expected):
+    command = f"find kernels -name 'test_*.py' | xargs {xargs_args}"
+
+    assert runs(command, "kernels/test_a.py") is expected
+
+
 # --------------------------------------------------------------------------- #
 # Job-level yaml parsing
 # --------------------------------------------------------------------------- #
@@ -839,6 +857,26 @@ def test_tethered_changed_file_passes(fake_repo):
     assert (
         run_changed_files_check(["tests/kernels/test_new.py"], selections, set()) == 0
     )
+
+
+def test_main_rejects_xargs_that_never_passes_test_paths(
+    fake_repo, monkeypatch, capsys
+):
+    _write_area(
+        fake_repo,
+        monkeypatch,
+        """
+        steps:
+        - commands:
+          - find kernels -name 'test_*.py' | xargs -I{} pytest test_regression.py
+        """,
+    )
+    monkeypatch.setattr(
+        "sys.argv", ["check_test_tethering.py", "tests/kernels/test_new.py"]
+    )
+
+    assert main() == 1
+    assert "is not run by any Buildkite job" in capsys.readouterr().out
 
 
 def test_allowlisted_changed_file_passes(fake_repo):

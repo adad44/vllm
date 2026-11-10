@@ -118,6 +118,20 @@ If you submit a PR to fix a CI failure:
 - Add the `ci-failure` label:
   This helps track it in the [CI Failures GitHub Project](https://github.com/orgs/vllm-project/projects/20).
 
+## Checking That Tests Run in CI
+
+The `check-test-tethering` pre-commit hook checks whether Buildkite commands
+select each changed test file. With `find ... | xargs -I{} pytest ...`, include
+`{}` as a positional test path so pytest receives the matched files:
+
+```bash
+find kernels -name 'test_*.py' -print0 | xargs -0 -I{} pytest -v -s '{}'
+```
+
+A replacement used only as an option value, or omitted from the pytest command,
+does not count as coverage of the files found by `find`. Without a replacement
+option, `xargs pytest -v -s` appends the matched paths automatically.
+
 ## Other Resources
 
 - 🔍 [Test Reliability on `main`](https://buildkite.com/organizations/vllm/analytics/suites/ci-1/tests?branch=main&order=ASC&sort_by=reliability)
